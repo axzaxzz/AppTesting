@@ -1,0 +1,55 @@
+{
+  "github": {
+    "repo_url": "https://github.com/axzaxzz/AppTesting/",
+    "branch": "main",
+    "auto_push": true,
+    "auto_pull": true,
+    "sync_interval": 15
+  },
+  "local": {
+    "code_directory": "C:\\Users\\janny\\Desktop\\testrepo",
+    "watch_patterns": [
+      "*.py",
+      "*.js",
+      "*.jsx",
+      "*.ts",
+      "*.tsx",
+      "*.html",
+      "*.css",
+      "*.json",
+      "*.md"
+    ]
+  },
+  "perplexity": {
+    "url": "https://www.perplexity.ai",
+    "custom_prompt_enabled": true,
+    "custom_prompt_template": "coding_assistant"
+  },
+  "ui": {
+    "theme": "midnight",
+    "max_tabs": 5,
+    "show_notifications": true,
+    "window_width": 1400,
+    "window_height": 900,
+    "custom_themes": {
+      "bg": "#0d0d0d",
+      "cardBg": "#1a1a1a",
+      "text": "#d4d4d4",
+      "accent": "#667eea",
+      "toolbar": "#1a1a1a",
+      "border": "#2a2a2a",
+      "textMuted": "#9ca3af"
+    }
+  },
+  "sync": {
+    "commit_prefix": "[Wave.AI Auto]",
+    "conflict_strategy": "manual",
+    "auto_commit_on_save": true,
+    "commit_message_template": "[Wave.AI Auto] {timestamp}: {files_changed}"
+  },
+  "version_control": {
+    "max_history": 100,
+    "checkpoint_interval": 300,
+    "auto_checkpoint": true
+  }
+}

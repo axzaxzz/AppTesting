@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave.AI</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        /* Cursor uses SF Pro on Mac, but we use Inter (similar) for cross-platform compatibility */
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+            background: #0d0d0d;
+            color: #d4d4d4;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            position: relative;
+        }
+        
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.1) 0%, transparent 50%);
+            animation: rotate 30s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        * {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Unified Toolbar (titlebar + toolbar combined) */
+        .toolbar {
+            background: #1a1a1a;
+            border-bottom: 1px solid #2a2a2a;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 50px;
+            -webkit-app-region: drag;
+        }
+        
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-left: 20px;
+            -webkit-app-region: no-drag;
+        }
+        
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-right: 0;
+            -webkit-app-region: no-drag;
+        }
+        
+        .toolbar-middle {
+            flex: 1;
+            -webkit-app-region: drag;
+            height: 100%;
+        }
+        
+        .window-controls {
+            display: flex;
+            -webkit-app-region: no-drag;
+        }
+        
+        .window-btn {
+            width: 46px;
+            height: 50px;
+            border: none;
+            background: transparent;
+            color: #9ca3af;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .window-btn:hover {
+            background: #2a2a2a;
+            color: #ffffff;
+        }
+        
+        .window-btn.close:hover {
+            background: #e53e3e;
+            color: #ffffff;
+        }
+        
+        .logo {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: transparent;
+        }
+        
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        
+        .logo-icon img {
+            display: block;
+        }
+        
+        /* Only show W if image is hidden AND logo-icon is empty */
+        .logo-icon:empty::before {
+            content: 'W';
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Hide the W if image is present (even if hidden) */
+        .logo-icon:has(img)::before {
+            display: none;
+        }
+        
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: #1e1e1e;
+            border-radius: 12px;
+            font-size: 12px;
+            border: 1px solid #2a2a2a;
+        }
+        
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+        
+        .status-dot.idle {
+            background: #6b7280;
+        }
+        
+        /* Main Content */
+        .container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        /* Sidebar Navigation (Cursor-style) */
+        .sidebar-nav {
+            width: 50px;
+            background: #1a1a1a;
+            border-right: 1px solid #2a2a2a;
+            display: flex;
+            flex-direction: column;
+            padding: 8px 0;
+            gap: 4px;
+        }
+        
+        .nav-item {
+            width: 100%;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+            color: #6b7280;
+            font-size: 20px;
+        }
+        
+        .nav-item:hover {
+            background: #252525;
+            color: #d4d4d4;
+        }
+        
+        .nav-item.active {
+            color: #667eea;
+        }
+        
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: #667eea;
+        }
+        
+        .nav-tooltip {
+            position: absolute;
+            left: 60px;
+            background: #252525;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            border: 1px solid #3a3a3a;
+        }
+        
+        .nav-item:hover .nav-tooltip {
+            opacity: 1;
+        }
+        
+        .content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            width: 100%;
+        }
+        
+        .content #tab-perplexity {
+            padding: 0;
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            margin-bottom: 48px;
+            padding-top: 40px;
+        }
+        
+        .hero h1 {
+            font-size: 52px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient-shift 3s ease infinite;
+            background-size: 200% 200%;
+        }
+        
+        @keyframes gradient-shift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        .hero p {
+            font-size: 16px;
+            color: #9ca3af;
+            margin-bottom: 32px;
+        }
+        
+        /* Action Buttons - 2x2 Grid */
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            max-width: 600px;
+            margin: 0 auto 48px;
+        }
+        
+        @media (max-width: 768px) {
+            .actions {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .btn:active::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0) scale(0.98);
+        }
+        
+        .btn-secondary {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border: 1px solid #2a2a2a;
+        }
+        
+        .btn-secondary:hover {
+            background: #252525;
+            border-color: #3a3a3a;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary:active {
+            transform: translateY(0) scale(0.98);
+        }
+        
+        /* Info Cards */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .card {
+            background: linear-gradient(135deg, #1a1a1a 0%, #1e1e1e 100%);
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: default;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #667eea, transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .card:hover::before {
+            opacity: 1;
+        }
+        
+        .card:hover {
+            border-color: #667eea;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(102, 126, 234, 0.3), 0 0 0 1px rgba(102, 126, 234, 0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .card-icon {
+            width: 32px;
+            height: 32px;
+            background: #252525;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        
+        .card-value {
+            font-size: 13px;
+            color: #9ca3af;
+            word-break: break-all;
+            line-height: 1.6;
+        }
+        
+        .card-value.active {
+            color: #10b981;
+        }
+        
+        .card-value.inactive {
+            color: #ef4444;
+        }
+        
+        /* Settings Panel */
+        .settings-panel {
+            position: fixed;
+            right: -400px;
+            top: 0;
+            width: 400px;
+            height: 100vh;
+            background: #1a1a1a;
+            border-left: 1px solid #2a2a2a;
+            transition: right 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .settings-panel.open {
+            right: 0;
+        }
+        
+        .settings-header {
+            padding: 20px;
+            border-bottom: 1px solid #2a2a2a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .settings-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 20px;
+            padding: 4px 8px;
+        }
+        
+        .close-btn:hover {
+            color: #ffffff;
+        }
+        
+        .settings-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+        }
+        
+        .theme-option {
+            padding: 16px;
+            border: 2px solid #2a2a2a;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        
+        .theme-option:hover {
+            border-color: #667eea;
+        }
+        
+        .theme-option.active {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .theme-preview {
+            width: 100%;
+            height: 60px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            gap: 2px;
+        }
+        
+        .theme-preview-bar {
+            flex: 1;
+            border-radius: 2px;
+        }
+        
+        .theme-name {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #d4d4d4;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0d0d0d;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            color: #d4d4d4;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        /* Icon */
+        .icon {
+            display: inline-block;
+            font-style: normal;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #0d0d0d;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #2a2a2a;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3a3a3a;
+        }
+        
+        /* Changelog */
+        .changelog {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .changelog-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        
+        .changelog-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        
+        .changelog-item {
+            display: flex;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #2a2a2a;
+            transition: all 0.2s;
+        }
+        
+        .changelog-item:last-child {
+            border-bottom: none;
+        }
+        
+        .changelog-item:hover {
+            padding-left: 8px;
+        }
+        
+        .changelog-icon {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            background: #252525;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            margin-top: 2px;
+        }
+        
+        .changelog-content {
+            flex: 1;
+        }
+        
+        .changelog-type {
+            font-size: 11px;
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .changelog-text {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-top: 4px;
+            line-height: 1.5;
+        }
+        
+        .changelog-time {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        
+        /* Account Switcher */
+        .account-switcher {
+            background: linear-gradient(135deg, #1a1a1a 0%, #1e1e1e 100%);
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 32px;
+        }
+        
+        .account-section {
+            margin-bottom: 20px;
+        }
+        
+        .account-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .account-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        
+        .account-select {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0d0d0d;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            color: #d4d4d4;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .account-select:hover {
+            border-color: #667eea;
+        }
+        
+        .account-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .account-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            flex: 1;
+        }
+        
+        /* Perplexity Tabs */
+        .perplexity-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 50px);
+            overflow: hidden;
+        }
+        
+        #tab-perplexity {
+            display: none !important;
+            height: calc(100vh - 50px) !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        #tab-perplexity.active {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        
+        #tab-perplexity .content {
+            padding: 0;
+        }
+        
+        .perplexity-tabs-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            background: #1a1a1a;
+            border-bottom: 1px solid #2a2a2a;
+            flex-shrink: 0;
+        }
+        
+        .perplexity-tabs-list {
+            display: flex;
+            gap: 4px;
+            flex: 1;
+            overflow-x: auto;
+            padding: 0 8px;
+        }
+        
+        .perplexity-tab-item {
+            padding: 8px 16px;
+            background: #0d0d0d;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+        
+        .perplexity-tab-item:hover {
+            background: #1a1a1a;
+            border-color: #3a3a3a;
+        }
+        
+        .perplexity-tab-item.active {
+            background: #1a1a1a;
+            border-color: #667eea;
+            border-bottom-color: transparent;
+        }
+        
+        .perplexity-tab-close {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #2a2a2a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: 4px;
+        }
+        
+        .perplexity-tab-close:hover {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .perplexity-frames-container {
+            flex: 1;
+            position: relative;
+            background: #0d0d0d;
+            overflow: hidden;
+            min-height: 0;
+            width: 100%;
+        }
+        
+        .perplexity-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+            background: white;
+            z-index: 1;
+        }
+        
+        .perplexity-frame.active {
+            display: block !important;
+            z-index: 10;
+        }
+        
+        .perplexity-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .account-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #0d0d0d;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+        
+        .account-toggle:hover {
+            border-color: #667eea;
+        }
+        
+        .account-toggle.active {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #667eea;
+        }
+        
+        .toggle-switch {
+            width: 32px;
+            height: 18px;
+            background: #2a2a2a;
+            border-radius: 9px;
+            position: relative;
+            transition: background 0.2s;
+        }
+        
+        .toggle-switch.active {
+            background: #667eea;
+        }
+        
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+        }
+        
+        .toggle-switch.active::after {
+            transform: translateX(14px);
+        }
+        
+        /* Fullscreen Improvements */
+        @media (min-width: 1600px) {
+            .content {
+                padding: 40px 60px;
+                max-width: 1600px;
+                margin: 0 auto;
+            }
+            
+            .hero h1 {
+                font-size: 64px;
+            }
+            
+            .cards {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        /* Fix button responsiveness */
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        
+        .btn:not(:disabled) {
+            pointer-events: auto;
+        }
+        
+        /* Prevent button freeze */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        button, .nav-item {
+            -webkit-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Unified Toolbar -->
+    <div class="toolbar">
+        <!-- Left: Logo -->
+        <div class="toolbar-left">
+            <div class="logo">
+                <div class="logo-icon" id="logoIcon">
+                    <img src="LOGO_URL_PLACEHOLDER" alt="Wave.AI Logo" id="logoImage" onerror="handleLogoError(this);">
+                </div>
+                <span>Wave.AI</span>
+            </div>
+        </div>
+        
+        <!-- Middle: Draggable area -->
+        <div class="toolbar-middle"></div>
+        
+        <!-- Right: Status + Settings + Window Controls -->
+        <div class="toolbar-right">
+            <div class="status-pill">
+                <div class="status-dot idle" id="statusDot"></div>
+                <span id="statusText">Ready</span>
+            </div>
+            <button class="btn btn-secondary" style="padding: 8px 16px;" onclick="openSettings()">
+                <span class="icon">⚙</span> Settings
+            </button>
+            <div class="window-controls">
+                <button class="window-btn" onclick="minimizeWindow()">−</button>
+                <button class="window-btn" onclick="maximizeWindow()">□</button>
+                <button class="window-btn close" onclick="closeWindow()">×</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar-nav">
+            <div class="nav-item active" onclick="switchTab('home')" data-tab="home">
+                <span>⌂</span>
+                <div class="nav-tooltip">Home</div>
+            </div>
+            <div class="nav-item" onclick="switchTab('commits')" data-tab="commits">
+                <span>◎</span>
+                <div class="nav-tooltip">Git Commits</div>
+            </div>
+            <div class="nav-item" onclick="switchTab('accounts')" data-tab="accounts">
+                <span>◉</span>
+                <div class="nav-tooltip">Accounts</div>
+            </div>
+            <div class="nav-item" onclick="switchTab('activity')" data-tab="activity">
+                <span>▤</span>
+                <div class="nav-tooltip">Activity Log</div>
+            </div>
+            <div class="nav-item" onclick="switchTab('perplexity')" data-tab="perplexity">
+                <span>◐</span>
+                <div class="nav-tooltip">Perplexity</div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <!-- HOME TAB -->
+            <div class="tab-content active" id="tab-home">
+                <!-- Hero Section -->
+                <div class="hero">
+                    <h1>Wave.AI</h1>
+                    <p>Free AI Coding Assistant powered by Perplexity</p>
+                </div>
+            
+            <!-- Action Buttons (2x2 Grid) -->
+            <div class="actions">
+                <button class="btn btn-primary" onclick="createPerplexityTab()">
+                    <span class="icon">+</span> New Perplexity Tab
+                </button>
+                <button class="btn btn-secondary" onclick="startSync()">
+                    <span class="icon">▶</span> Start Sync
+                </button>
+                <button class="btn btn-secondary" onclick="stopSync()">
+                    <span class="icon">⏸</span> Stop Sync
+                </button>
+                <button class="btn btn-secondary" onclick="manualSync()">
+                    <span class="icon">↻</span> Manual Sync
+                </button>
+            </div>
+            
+            <!-- Info Cards -->
+            <div class="cards">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">◎</div>
+                        <div class="card-title">Repository</div>
+                    </div>
+                    <div class="card-value" id="repoUrl">REPO_URL_PLACEHOLDER</div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">⌘</div>
+                        <div class="card-title">Local Directory</div>
+                    </div>
+                    <div class="card-value" id="localDir">LOCAL_DIR_PLACEHOLDER</div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">↔</div>
+                        <div class="card-title">Sync Status</div>
+                    </div>
+                    <div class="card-value inactive" id="syncStatus">Stopped - Click Start Sync</div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">⧉</div>
+                        <div class="card-title">Branch</div>
+                    </div>
+                    <div class="card-value" id="branchName">BRANCH_PLACEHOLDER</div>
+                </div>
+            </div>
+            </div>
+            
+            <!-- COMMITS TAB -->
+            <div class="tab-content" id="tab-commits">
+                <div class="hero">
+                    <h1>Git Commits</h1>
+                    <p>Recent changes to your repository</p>
+                </div>
+                <div class="changelog">
+                    <div class="changelog-header">
+                        <div class="changelog-title">Commit History</div>
+                        <button class="btn btn-secondary btn-small" onclick="refreshCommits()">↻ Refresh</button>
+                    </div>
+                    <div id="commitsList">
+                        <div class="changelog-item">
+                            <div class="changelog-icon">○</div>
+                            <div class="changelog-content">
+                                <div class="changelog-type">Loading</div>
+                                <div class="changelog-text">Fetching commit history...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ACCOUNTS TAB -->
+            <div class="tab-content" id="tab-accounts">
+                <div class="hero">
+                    <h1>Account Management</h1>
+                    <p>Manage your GitHub and Perplexity accounts</p>
+                </div>
+                
+                <!-- Account Switcher -->
+                <div class="account-switcher">
+                    <div class="account-section">
+                        <div class="account-label">GitHub Account</div>
+                        <select class="account-select" id="githubAccountSelect2" onchange="switchGithubAccount()">
+                            <option value="">Select GitHub Account...</option>
+                        </select>
+                        <div class="account-buttons">
+                            <button class="btn btn-secondary btn-small" onclick="addGithubAccount()">+ Add Account</button>
+                            <button class="btn btn-secondary btn-small" onclick="removeGithubAccount()">Remove</button>
+                        </div>
+                    </div>
+                    <div class="account-section">
+                        <div class="account-label">Perplexity Profile</div>
+                        <select class="account-select" id="perplexityAccountSelect2" onchange="switchPerplexityAccount()">
+                            <option value="">Select Perplexity Profile...</option>
+                        </select>
+                        <div class="account-buttons">
+                            <button class="btn btn-secondary btn-small" onclick="addPerplexityAccount()">+ Add Profile</button>
+                            <button class="btn btn-secondary btn-small" onclick="removePerplexityAccount()">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ACTIVITY TAB -->
+            <div class="tab-content" id="tab-activity">
+                <div class="hero">
+                    <h1>Activity Log</h1>
+                    <p>Recent actions and events</p>
+                </div>
+                <div class="changelog">
+                    <div class="changelog-header">
+                        <div class="changelog-title">Recent Activity</div>
+                    </div>
+                    <div id="changelogList">
+                        <div class="changelog-item">
+                            <div class="changelog-icon">○</div>
+                            <div class="changelog-content">
+                                <div class="changelog-type">System</div>
+                                <div class="changelog-text">Wave.AI initialized</div>
+                                <div class="changelog-time">Just now</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- PERPLEXITY TAB -->
+            <div class="tab-content perplexity-container" id="tab-perplexity" style="padding: 0;">
+                <div class="perplexity-tabs-header">
+                    <div class="perplexity-tabs-list" id="perplexityTabsList">
+                        <!-- Tabs will be added dynamically -->
+                    </div>
+                    <div class="perplexity-controls">
+                        <div class="account-toggle" id="accountToggle" onclick="toggleCustomAccount()">
+                            <span>Custom Account</span>
+                            <div class="toggle-switch" id="accountToggleSwitch"></div>
+                        </div>
+                        <button class="btn btn-primary btn-small" onclick="createPerplexityTab()">
+                            <span class="icon">+</span> New Tab
+                        </button>
+                    </div>
+                </div>
+                <div class="perplexity-frames-container" id="perplexityFramesContainer">
+                    <!-- Perplexity iframes will be added here -->
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7280; flex-direction: column; gap: 12px;">
+                        <div style="font-size: 48px;">◐</div>
+                        <div style="font-size: 16px; font-weight: 500;">No Perplexity windows open</div>
+                        <div style="font-size: 13px;">Click "New Tab" to open a new Perplexity window</div>
+                        <div style="font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center; max-width: 400px;">
+                            Each Perplexity session opens in a separate native window<br>
+                            for better compatibility and performance.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-header">
+            <h2>Settings</h2>
+            <button class="close-btn" onclick="closeSettings()">×</button>
+        </div>
+        <div class="settings-content">
+            <div class="form-group">
+                <label class="form-label">Theme</label>
+                <div class="theme-grid">
+                    <div class="theme-option active" onclick="selectTheme('dark')" data-theme="dark">
+                        <div class="theme-preview">
+                            <div class="theme-preview-bar" style="background: #0d0d0d;"></div>
+                            <div class="theme-preview-bar" style="background: #1a1a1a;"></div>
+                            <div class="theme-preview-bar" style="background: #667eea;"></div>
+                        </div>
+                        <div class="theme-name">Dark</div>
+                    </div>
+                    <div class="theme-option" onclick="selectTheme('light')" data-theme="light">
+                        <div class="theme-preview">
+                            <div class="theme-preview-bar" style="background: #ffffff;"></div>
+                            <div class="theme-preview-bar" style="background: #f5f5f5;"></div>
+                            <div class="theme-preview-bar" style="background: #667eea;"></div>
+                        </div>
+                        <div class="theme-name">Light</div>
+                    </div>
+                    <div class="theme-option" onclick="selectTheme('midnight')" data-theme="midnight">
+                        <div class="theme-preview">
+                            <div class="theme-preview-bar" style="background: #000000;"></div>
+                            <div class="theme-preview-bar" style="background: #0a0a0a;"></div>
+                            <div class="theme-preview-bar" style="background: #4c9aff;"></div>
+                        </div>
+                        <div class="theme-name">Midnight</div>
+                    </div>
+                    <div class="theme-option" onclick="selectTheme('nord')" data-theme="nord">
+                        <div class="theme-preview">
+                            <div class="theme-preview-bar" style="background: #2e3440;"></div>
+                            <div class="theme-preview-bar" style="background: #3b4252;"></div>
+                            <div class="theme-preview-bar" style="background: #88c0d0;"></div>
+                        </div>
+                        <div class="theme-name">Nord</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">GitHub Repository URL</label>
+                <input type="text" class="form-input" id="settingsRepoUrl" placeholder="https://github.com/username/repo">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Local Code Directory</label>
+                <input type="text" class="form-input" id="settingsLocalDir" placeholder="C:/Users/username/MyProject">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Git Branch</label>
+                <input type="text" class="form-input" id="settingsBranch" value="main">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Sync Interval (seconds)</label>
+                <input type="number" class="form-input" id="settingsSyncInterval" value="30">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Custom Theme Creator</label>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px;">
+                    <div>
+                        <label style="font-size: 11px; color: #9ca3af;">Background</label>
+                        <input type="color" class="form-input" id="customBg" value="#0d0d0d" style="height: 40px; padding: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #9ca3af;">Cards</label>
+                        <input type="color" class="form-input" id="customCardBg" value="#1a1a1a" style="height: 40px; padding: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #9ca3af;">Accent</label>
+                        <input type="color" class="form-input" id="customAccent" value="#667eea" style="height: 40px; padding: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #9ca3af;">Text</label>
+                        <input type="color" class="form-input" id="customText" value="#d4d4d4" style="height: 40px; padding: 4px;">
+                    </div>
+                </div>
+                <button class="btn btn-secondary" style="width: 100%;" onclick="applyCustomTheme()">
+                    Apply Custom Theme
+                </button>
+            </div>
+            
+            <button class="btn btn-primary" style="width: 100%;" onclick="saveSettings()">
+                Save Settings
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        // JavaScript functions will be added here
+    </script>
+</body>
+</html>
+

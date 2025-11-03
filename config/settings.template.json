@@ -1,0 +1,47 @@
+{
+  "github": {
+    "repo_url": "",
+    "branch": "main",
+    "auto_push": true,
+    "auto_pull": true,
+    "sync_interval": 30
+  },
+  "local": {
+    "code_directory": "",
+    "watch_patterns": [
+      "*.py",
+      "*.js",
+      "*.jsx",
+      "*.ts",
+      "*.tsx",
+      "*.html",
+      "*.css",
+      "*.json",
+      "*.md"
+    ]
+  },
+  "perplexity": {
+    "url": "https://www.perplexity.ai",
+    "custom_prompt_enabled": true,
+    "custom_prompt_template": "coding_assistant"
+  },
+  "ui": {
+    "theme": "dark",
+    "max_tabs": 5,
+    "show_notifications": true,
+    "window_width": 1400,
+    "window_height": 900
+  },
+  "sync": {
+    "commit_prefix": "[Wave.AI Auto]",
+    "conflict_strategy": "manual",
+    "auto_commit_on_save": true,
+    "commit_message_template": "[Wave.AI Auto] {timestamp}: {files_changed}"
+  },
+  "version_control": {
+    "max_history": 100,
+    "checkpoint_interval": 300,
+    "auto_checkpoint": true
+  }
+}
+

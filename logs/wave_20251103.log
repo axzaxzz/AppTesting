@@ -1,0 +1,61 @@
+2025-11-03 19:15:40 | INFO     | logger:info:57 | Starting Wave.AI in GUI mode
+2025-11-03 19:15:43 | INFO     | logger:info:57 | Starting Wave.AI GUI
+2025-11-03 19:15:43 | INFO     | logger:info:57 | Created tab 0: Perplexity 1
+2025-11-03 19:15:43 | INFO     | logger:info:57 | Logo file found: New Project(7)(1).png
+2025-11-03 19:15:43 | INFO     | logger:info:57 | Logo URL: file:///C:/Users/janny/Desktop/Wave.AI/New Project(7)(1).png
+2025-11-03 19:15:44 | INFO     | logger:info:57 | Logo encoded as base64 (43556 chars)
+2025-11-03 19:15:44 | INFO     | logger:info:57 | Window icon file found: C:\Users\janny\Desktop\Wave.AI\ICON.ico
+2025-11-03 19:15:46 | INFO     | logger:info:57 | Wave.AI window loaded
+2025-11-03 19:15:48 | INFO     | logger:info:57 | Window icon set successfully from C:\Users\janny\Desktop\Wave.AI\ICON.ico
+2025-11-03 19:15:48 | INFO     | logger:info:57 | Initializing sync engine in background...
+2025-11-03 19:15:48 | INFO     | logger:info:57 | Initializing Git sync for https://github.com/axzaxzz/AppTesting/
+2025-11-03 19:15:48 | INFO     | logger:info:57 | Opened existing repository at C:\Users\janny\Desktop\testrepo
+2025-11-03 19:15:48 | INFO     | logger:info:57 | Fetching all branches from origin...
+2025-11-03 19:15:55 | WARNING  | logger:warning:61 | Could not fetch branches: Cmd('git') failed due to: exit code(128)
+  cmdline: git fetch -v -- origin
+  stderr: 'fatal: unable to access 'https://github.com/axzaxzz/AppTesting/': Could not resolve host: github.com'
+2025-11-03 19:15:57 | INFO     | logger:info:57 | Created checkpoint: Initial checkpoint
+2025-11-03 19:15:57 | INFO     | logger:info:57 | Wave.AI sync engine initialized successfully
+2025-11-03 19:15:57 | INFO     | logger:info:57 | Sync engine initialized successfully
+2025-11-03 19:15:57 | INFO     | logger:info:57 | File watcher started for: C:\Users\janny\Desktop\testrepo
+2025-11-03 19:15:57 | INFO     | logger:info:57 | Watching patterns: ['*.py', '*.js', '*.jsx', '*.ts', '*.tsx', '*.html', '*.css', '*.json', '*.md']
+2025-11-03 19:15:57 | INFO     | logger:info:57 | Sync loop started (interval: 15s)
+2025-11-03 19:15:57 | INFO     | logger:info:57 | Wave.AI sync engine started
+2025-11-03 19:15:57 | INFO     | logger:info:57 | Auto-started sync engine
+2025-11-03 19:15:57 | ERROR    | logger:error:65 | Error checking remote changes: Cmd('git') failed due to: exit code(128)
+  cmdline: git fetch -v -- origin
+  stderr: 'fatal: unable to access 'https://github.com/axzaxzz/AppTesting/': Could not resolve host: github.com'
+2025-11-03 19:16:12 | ERROR    | logger:error:65 | Error checking remote changes: Cmd('git') failed due to: exit code(128)
+  cmdline: git fetch -v -- origin
+  stderr: 'fatal: unable to access 'https://github.com/axzaxzz/AppTesting/': Could not resolve host: github.com'
+2025-11-03 19:16:27 | ERROR    | logger:error:65 | Error checking remote changes: Cmd('git') failed due to: exit code(128)
+  cmdline: git fetch -v -- origin
+  stderr: 'fatal: unable to access 'https://github.com/axzaxzz/AppTesting/': Could not resolve host: github.com'
+2025-11-03 22:17:25 | INFO     | logger:info:57 | Starting Wave.AI in GUI mode
+2025-11-03 22:17:26 | INFO     | logger:info:57 | Starting Wave.AI GUI
+2025-11-03 22:17:26 | INFO     | logger:info:57 | Created tab 0: Perplexity 1
+2025-11-03 22:17:26 | INFO     | logger:info:57 | Logo file found: New Project(7)(1).png
+2025-11-03 22:17:26 | INFO     | logger:info:57 | Logo URL: file:///C:/Users/janny/Desktop/Wave.AI/New Project(7)(1).png
+2025-11-03 22:17:26 | INFO     | logger:info:57 | Logo encoded as base64 (43556 chars)
+2025-11-03 22:17:26 | INFO     | logger:info:57 | Window icon file found: C:\Users\janny\Desktop\Wave.AI\ICON.ico
+2025-11-03 22:17:26 | INFO     | logger:info:57 | Wave.AI window loaded
+2025-11-03 22:17:27 | INFO     | logger:info:57 | Window icon set successfully from C:\Users\janny\Desktop\Wave.AI\ICON.ico
+2025-11-03 22:17:27 | INFO     | logger:info:57 | Initializing sync engine in background...
+2025-11-03 22:17:27 | INFO     | logger:info:57 | Initializing Git sync for https://github.com/axzaxzz/AppTesting/
+2025-11-03 22:17:27 | INFO     | logger:info:57 | Opened existing repository at C:\Users\janny\Desktop\testrepo
+2025-11-03 22:17:27 | INFO     | logger:info:57 | Fetching all branches from origin...
+2025-11-03 22:17:32 | INFO     | logger:info:57 | Created checkpoint: Initial checkpoint
+2025-11-03 22:17:32 | INFO     | logger:info:57 | Wave.AI sync engine initialized successfully
+2025-11-03 22:17:32 | INFO     | logger:info:57 | Sync engine initialized successfully
+2025-11-03 22:17:32 | INFO     | logger:info:57 | File watcher started for: C:\Users\janny\Desktop\testrepo
+2025-11-03 22:17:32 | INFO     | logger:info:57 | Watching patterns: ['*.py', '*.js', '*.jsx', '*.ts', '*.tsx', '*.html', '*.css', '*.json', '*.md']
+2025-11-03 22:17:32 | INFO     | logger:info:57 | Sync loop started (interval: 15s)
+2025-11-03 22:17:32 | INFO     | logger:info:57 | Wave.AI sync engine started
+2025-11-03 22:17:32 | INFO     | logger:info:57 | Auto-started sync engine
+2025-11-03 22:17:41 | INFO     | logger:info:57 | Saving settings: {'repo_url': 'https://github.com/axzaxzz/AppTesting/', 'localDir': 'C:\\Users\\janny\\Desktop\\testrepo', 'branch': 'main', 'sync_interval': 15, 'theme': 'midnight'}
+2025-11-03 22:17:41 | INFO     | logger:info:57 | Theme changed to: midnight
+2025-11-03 22:17:41 | INFO     | logger:info:57 | Settings saved successfully
+2025-11-03 22:17:43 | INFO     | logger:info:57 | Created tab 1: Perplexity 2
+2025-11-03 22:17:43 | INFO     | logger:info:57 | Created Perplexity window: Perplexity 2 (Tab ID: 1)
+2025-11-03 22:17:51 | INFO     | logger:info:57 | Closed tab 1: Perplexity 2
+2025-11-03 22:17:51 | INFO     | logger:info:57 | Closed Perplexity window: Perplexity 2

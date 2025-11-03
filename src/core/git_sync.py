@@ -10,6 +10,7 @@ from typing import Optional, List, Tuple, Dict
 import git
 from git import Repo, GitCommandError
 import sys
+import shutil
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
@@ -130,31 +131,130 @@ class GitSync:
             logger.error(f"Error getting status: {e}")
             return {"error": str(e)}
     
+    def _handle_untracked_conflicts(self) -> bool:
+        """Handle untracked files that would conflict with pull"""
+        try:
+            # Fetch first to see what would conflict
+            origin = self.repo.remote('origin')
+            origin.fetch()
+            
+            # Get files that would be overwritten
+            untracked_files = self.repo.untracked_files
+            
+            if not untracked_files:
+                return True
+            
+            logger.info(f"Found {len(untracked_files)} untracked files that might conflict")
+            
+            # Create backup directory for conflicting files
+            backup_dir = self.local_path / ".wave-ai-backup" / datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Move conflicting untracked files to backup
+            moved_files = []
+            for file_path in untracked_files:
+                src_path = self.local_path / file_path
+                dst_path = backup_dir / file_path
+                
+                if src_path.exists():
+                    # Create parent directories in backup
+                    dst_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    # Move file to backup
+                    shutil.move(str(src_path), str(dst_path))
+                    moved_files.append(file_path)
+                    logger.debug(f"Backed up untracked file: {file_path}")
+            
+            if moved_files:
+                logger.info(f"Backed up {len(moved_files)} untracked files to {backup_dir}")
+                logger.info("These files will be restored after pull if they don't conflict")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error handling untracked conflicts: {e}")
+            return False
+    
+    def _restore_backed_up_files(self, backup_dir: Path):
+        """Restore backed up files if they don't conflict"""
+        try:
+            if not backup_dir.exists():
+                return
+            
+            restored_count = 0
+            for backup_file in backup_dir.rglob('*'):
+                if backup_file.is_file():
+                    # Calculate relative path from backup root
+                    rel_path = backup_file.relative_to(backup_dir)
+                    target_path = self.local_path / rel_path
+                    
+                    # Only restore if target doesn't exist (no conflict)
+                    if not target_path.exists():
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(backup_file), str(target_path))
+                        restored_count += 1
+                        logger.debug(f"Restored file: {rel_path}")
+            
+            if restored_count > 0:
+                logger.info(f"Restored {restored_count} non-conflicting files")
+            
+            # Clean up empty backup directory
+            try:
+                if backup_dir.exists():
+                    shutil.rmtree(backup_dir)
+            except:
+                pass  # Ignore cleanup errors
+                
+        except Exception as e:
+            logger.error(f"Error restoring backed up files: {e}")
+    
     def pull(self) -> Tuple[bool, str]:
         """
-        Pull changes from remote repository
+        Pull changes from remote repository with conflict handling
         Returns: (success, message)
         """
         if not self.is_repo_initialized():
             return False, "Repository not initialized"
         
+        backup_dir = None
         try:
-            # Check for uncommitted changes
+            # Handle untracked files that might conflict
+            if not self._handle_untracked_conflicts():
+                return False, "Failed to handle untracked file conflicts"
+            
+            # Remember backup directory for later restoration
+            backup_dirs = list((self.local_path / ".wave-ai-backup").glob("*")) if (self.local_path / ".wave-ai-backup").exists() else []
+            backup_dir = backup_dirs[-1] if backup_dirs else None
+            
+            # Check for uncommitted changes and stash them
+            stash_created = False
             if self.repo.is_dirty():
                 logger.warning("Local changes detected, stashing before pull")
-                self.repo.git.stash('save', 'Wave.AI auto-stash before pull')
+                self.repo.git.stash('push', '-m', 'Wave.AI auto-stash before pull')
+                stash_created = True
             
             # Pull from remote
             origin = self.repo.remote('origin')
             pull_info = origin.pull(self.branch)
             
             # Restore stashed changes if any
-            if self.repo.git.stash('list'):
+            if stash_created:
                 try:
-                    self.repo.git.stash('pop')
+                    # Check if stash exists before popping
+                    stash_list = self.repo.git.stash('list')
+                    if stash_list:
+                        self.repo.git.stash('pop')
+                        logger.info("Restored stashed changes")
                 except GitCommandError as e:
-                    logger.warning(f"Conflict when restoring stashed changes: {e}")
-                    return False, "Conflict detected after pull. Please resolve manually."
+                    if "conflict" in str(e).lower():
+                        logger.warning(f"Conflict when restoring stashed changes: {e}")
+                        logger.warning("Please resolve conflicts manually and run 'git stash drop' when done")
+                    else:
+                        logger.error(f"Error restoring stash: {e}")
+            
+            # Restore backed up files that don't conflict
+            if backup_dir:
+                self._restore_backed_up_files(backup_dir)
             
             logger.git_event("PULL", f"Successfully pulled from {self.branch}")
             return True, "Pull successful"
@@ -162,10 +262,20 @@ class GitSync:
         except GitCommandError as e:
             error_msg = f"Git pull failed: {e}"
             logger.error(error_msg)
+            
+            # Try to restore backup if pull failed
+            if backup_dir:
+                self._restore_backed_up_files(backup_dir)
+            
             return False, error_msg
         except Exception as e:
             error_msg = f"Unexpected error during pull: {e}"
             logger.error(error_msg)
+            
+            # Try to restore backup if pull failed
+            if backup_dir:
+                self._restore_backed_up_files(backup_dir)
+            
             return False, error_msg
     
     def commit(self, message: str, files: Optional[List[str]] = None) -> Tuple[bool, str]:
@@ -388,4 +498,3 @@ class GitSync:
         except Exception as e:
             logger.error(f"Error getting branches: {e}")
             return {"local": [], "remote": []}
-

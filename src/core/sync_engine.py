@@ -9,6 +9,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 import sys
+import gc
+import signal
+import atexit
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from src.core.git_sync import GitSync
@@ -31,6 +34,7 @@ class SyncEngine:
         self.last_sync_time = 0
         self.last_pull_time = 0
         self.sync_lock = threading.Lock()
+        self._shutdown_event = threading.Event()
         
         self.stats = {
             "pulls": 0,
@@ -39,6 +43,29 @@ class SyncEngine:
             "errors": 0,
             "last_activity": None
         }
+        
+        # Register cleanup handlers
+        atexit.register(self._cleanup)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
+    
+    def _signal_handler(self, signum, frame):
+        """Handle system signals for graceful shutdown"""
+        logger.info(f"Received signal {signum}, shutting down gracefully...")
+        self._shutdown_event.set()
+        self.stop()
+    
+    def _cleanup(self):
+        """Cleanup resources on exit"""
+        try:
+            if self.is_running:
+                self.stop()
+            
+            # Force garbage collection
+            gc.collect()
+            
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
     
     def initialize(self) -> tuple[bool, str]:
         """Initialize all components"""
@@ -86,12 +113,15 @@ class SyncEngine:
             return False, "Sync engine not initialized. Call initialize() first."
         
         try:
+            # Clear shutdown event
+            self._shutdown_event.clear()
+            
             # Start file watcher
             self.file_watcher.start()
             
             # Start sync thread
             self.is_running = True
-            self.sync_thread = threading.Thread(target=self._sync_loop, daemon=True)
+            self.sync_thread = threading.Thread(target=self._sync_loop, daemon=False)  # Changed to non-daemon
             self.sync_thread.start()
             
             logger.info("Wave.AI sync engine started")
@@ -104,21 +134,40 @@ class SyncEngine:
             return False, error_msg
     
     def stop(self) -> tuple[bool, str]:
-        """Stop the synchronization engine"""
+        """Stop the synchronization engine with improved cleanup"""
         if not self.is_running:
             return False, "Sync engine is not running"
         
         try:
-            # Stop sync loop
+            logger.info("Stopping sync engine...")
+            
+            # Signal shutdown
+            self._shutdown_event.set()
             self.is_running = False
             
-            # Stop file watcher
+            # Stop file watcher first
             if self.file_watcher:
-                self.file_watcher.stop()
+                try:
+                    self.file_watcher.stop()
+                    logger.debug("File watcher stopped")
+                except Exception as e:
+                    logger.warning(f"Error stopping file watcher: {e}")
             
-            # Wait for sync thread to finish
+            # Wait for sync thread to finish with timeout
             if self.sync_thread and self.sync_thread.is_alive():
-                self.sync_thread.join(timeout=10)
+                logger.debug("Waiting for sync thread to finish...")
+                self.sync_thread.join(timeout=5.0)  # 5 second timeout
+                
+                if self.sync_thread.is_alive():
+                    logger.warning("Sync thread did not finish cleanly within timeout")
+                else:
+                    logger.debug("Sync thread finished cleanly")
+            
+            # Force cleanup
+            self.sync_thread = None
+            
+            # Run garbage collection to free memory
+            gc.collect()
             
             logger.info("Wave.AI sync engine stopped")
             return True, "Sync engine stopped"
@@ -128,42 +177,94 @@ class SyncEngine:
             logger.error(error_msg)
             return False, error_msg
     
+    def emergency_stop(self) -> tuple[bool, str]:
+        """Emergency stop for when normal stop fails"""
+        try:
+            logger.warning("Emergency stop initiated")
+            
+            # Force stop everything
+            self._shutdown_event.set()
+            self.is_running = False
+            
+            # Force stop file watcher
+            if self.file_watcher:
+                try:
+                    self.file_watcher._should_stop = True
+                    if hasattr(self.file_watcher, '_observer') and self.file_watcher._observer:
+                        self.file_watcher._observer.stop()
+                except:
+                    pass
+            
+            # Don't wait for thread, just mark as stopped
+            self.sync_thread = None
+            
+            # Force garbage collection
+            gc.collect()
+            
+            logger.warning("Emergency stop completed")
+            return True, "Emergency stop completed"
+            
+        except Exception as e:
+            logger.error(f"Emergency stop failed: {e}")
+            return False, f"Emergency stop failed: {e}"
+    
     def _sync_loop(self):
-        """Main synchronization loop"""
+        """Main synchronization loop with improved memory management"""
         sync_interval = config.get('github.sync_interval', 30)
         auto_pull = config.get('github.auto_pull', True)
         
         logger.info(f"Sync loop started (interval: {sync_interval}s)")
         
-        while self.is_running:
+        last_gc_time = time.time()
+        gc_interval = 300  # Run garbage collection every 5 minutes
+        
+        while self.is_running and not self._shutdown_event.is_set():
             try:
+                # Check for shutdown signal
+                if self._shutdown_event.wait(timeout=1.0):  # Check every second
+                    break
+                
+                current_time = time.time()
+                
                 # Check for remote changes and pull if auto_pull is enabled
-                if auto_pull:
+                if auto_pull and (current_time - self.last_pull_time) >= sync_interval:
                     self._check_and_pull()
                 
                 # Check file watcher debounce
                 if self.file_watcher:
                     self.file_watcher.check_debounce()
                 
-                # Sleep for a short time before next check
-                time.sleep(min(sync_interval, 5))
+                # Periodic garbage collection to prevent memory leaks
+                if current_time - last_gc_time > gc_interval:
+                    gc.collect()
+                    last_gc_time = current_time
+                    logger.debug("Performed garbage collection")
+                
+                # Small sleep to prevent excessive CPU usage
+                time.sleep(0.5)
                 
             except Exception as e:
-                logger.error(f"Error in sync loop: {e}")
-                self.stats["errors"] += 1
-                time.sleep(10)  # Wait longer after an error
+                if self.is_running:  # Only log if we're supposed to be running
+                    logger.error(f"Error in sync loop: {e}")
+                    self.stats["errors"] += 1
+                
+                # Wait longer after an error, but still check for shutdown
+                if self._shutdown_event.wait(timeout=10):
+                    break
+        
+        logger.info("Sync loop exited")
     
     def _check_and_pull(self):
         """Check for remote changes and pull if available"""
-        sync_interval = config.get('github.sync_interval', 30)
         current_time = time.time()
         
-        # Check if it's time to pull
-        if current_time - self.last_pull_time < sync_interval:
-            return
-        
         try:
-            with self.sync_lock:
+            # Use non-blocking lock to prevent hanging
+            if not self.sync_lock.acquire(blocking=False):
+                logger.debug("Sync already in progress, skipping pull check")
+                return
+            
+            try:
                 # Check for remote changes
                 has_changes, commits_behind = self.git_sync.has_remote_changes()
                 
@@ -183,7 +284,8 @@ class SyncEngine:
                         logger.sync_event("PULL_SUCCESS", message)
                         
                         # Create checkpoint after successful pull
-                        self.version_control.create_checkpoint(f"Auto-pull: {commits_behind} commit(s)")
+                        if self.version_control:
+                            self.version_control.create_checkpoint(f"Auto-pull: {commits_behind} commit(s)")
                     else:
                         self.stats["errors"] += 1
                         logger.error(f"Pull failed: {message}")
@@ -200,9 +302,19 @@ class SyncEngine:
                 
                 self.last_pull_time = current_time
                 
+            finally:
+                self.sync_lock.release()
+                
         except Exception as e:
             logger.error(f"Error during pull check: {e}")
             self.stats["errors"] += 1
+            
+            # Ensure file watcher is resumed even if there's an error
+            if self.file_watcher:
+                try:
+                    self.file_watcher.resume()
+                except:
+                    pass
     
     def _on_files_changed(self, changed_files: list):
         """Callback when local files are changed"""
@@ -211,7 +323,12 @@ class SyncEngine:
             return
         
         try:
-            with self.sync_lock:
+            # Use non-blocking lock to prevent hanging
+            if not self.sync_lock.acquire(blocking=False):
+                logger.debug("Sync already in progress, skipping file change handling")
+                return
+            
+            try:
                 logger.sync_event("LOCAL_CHANGES", f"{len(changed_files)} file(s) changed")
                 
                 # Create commit message
@@ -234,10 +351,14 @@ class SyncEngine:
                     logger.sync_event("PUSH_SUCCESS", result)
                     
                     # Create checkpoint
-                    self.version_control.create_checkpoint(f"Auto-push: {len(changed_files)} file(s)")
+                    if self.version_control:
+                        self.version_control.create_checkpoint(f"Auto-push: {len(changed_files)} file(s)")
                 else:
                     self.stats["errors"] += 1
                     logger.error(f"Push failed: {result}")
+            
+            finally:
+                self.sync_lock.release()
                 
         except Exception as e:
             logger.error(f"Error handling file changes: {e}")
@@ -355,4 +476,3 @@ class SyncEngine:
 
 # Global sync engine instance
 sync_engine = SyncEngine()
-
